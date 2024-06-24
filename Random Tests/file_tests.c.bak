@@ -1,0 +1,26 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+int main() {
+	FILE* my_file = fopen("menu.txt", "r");
+	char* file_line = NULL;
+	size_t line_len = 0;
+	
+	while (getline(&file_line, &line_len, my_file) != -1) {
+		printf("%s", file_line);
+	}
+	fclose(my_file);
+	
+	printf("\n\n\n\n");
+	
+	//my_file = fopen("menu.txt", "r");
+	file_line = NULL;
+	line_len = 0;
+	
+	while (getline(&file_line, &line_len, my_file) != -1) {
+		printf("%s", file_line);
+	}
+	fclose(my_file);
+	
+	
+}

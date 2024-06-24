@@ -1,0 +1,261 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#define NAME_LEN 100
+#define ALPHA 0.3
+#define PRINT_DEBUG 1
+
+typedef struct Cargo { //employee
+	char name[NAME_LEN];
+	unsigned int personnel_num; // hash based on personnel number
+} Cargo;
+
+typedef struct HashTable {
+	int num_buckets;
+	int num_filled_buckets;
+	Cargo** buckets; // replace upon collision
+} HashTable;
+
+//==================================================================
+//
+//		FUNCTIONS TO PRINT/DISPLAY THE HASH TABLE AND DATA
+//
+//==================================================================
+void print_cargo(Cargo* cargo){
+	fprintf(stdout, "%s %u\n", cargo->name, cargo->personnel_num);
+}
+
+void print_hash_table(HashTable* ht){
+	fprintf(stdout, "====== HASH TABLE WITH %d BUCKETS ======\n", ht->num_buckets);
+	for (int i=0; i < ht->num_buckets; i++){
+		fprintf(stdout, "BUCKET INDEX: %d\t CARGO: ", i);
+		if (ht->buckets[i] == NULL){
+			fprintf(stdout, "\n");
+		} else {
+			print_cargo(ht->buckets[i]);
+		}
+	}
+	fprintf(stdout, "========================================\n");
+}
+
+
+//==================================================================
+//
+//		FUNCTION TO CREATE CARGO
+//
+//==================================================================
+
+Cargo* make_cargo(char name[], unsigned int personnel_num){
+	Cargo* c = (Cargo*)malloc(sizeof(Cargo));
+	strcpy(c->name, name);
+	c->personnel_num = personnel_num;
+	return c;
+}
+
+
+//==================================================================
+//
+//		HASH TABLE UTILITIES
+//
+//==================================================================
+
+HashTable* initialize_hash_table(int starting_size){ //similar to fancy list
+	HashTable* ht = (HashTable*)malloc(sizeof(HashTable));
+	ht->buckets = (Cargo**)calloc(starting_size, sizeof(Cargo *));
+	ht->num_buckets = starting_size;
+	ht->num_filled_buckets = 0;
+	return ht;
+}
+
+//utility function
+float get_load_factor(HashTable* ht){
+	/**
+	Calculate the load factor of the hash table, alpha
+	*/
+	return ((float)ht->num_filled_buckets) / ((float)ht->num_buckets);
+}
+
+//Actual hash function -> maps keys to buckets
+unsigned int hash(HashTable* ht, int val){
+	/**
+	Modulo hash function
+	*/
+	return val % ht->num_buckets;
+}
+
+Cargo* insert(HashTable* ht, Cargo* val){
+	/**
+	Insert "helper", not meant to be used as interface with the 
+	hash table.
+
+	In the case of a collision, the original cargo is removed and replaced
+	with the new cargo. The original cargo is returned.
+	*/
+	Cargo* tmp = NULL;
+	unsigned int i = hash(ht, val->personnel_num);
+	
+	if (PRINT_DEBUG){
+		fprintf(stdout, "Now inserting record for: ");
+		print_cargo(val);
+		fprintf(stdout, "Attempting insert at bucket index %d ...\n", i);
+	}
+	
+	if (ht->buckets[i] != NULL){
+		tmp = ht->buckets[i];
+		if (PRINT_DEBUG){
+			fprintf(stdout, "Collision found! Removing record for: ");
+			print_cargo(tmp);
+		}
+	} else {
+		ht->num_filled_buckets++;
+	}
+	ht->buckets[i] = val;
+	
+	return tmp;
+}
+
+void resize(HashTable* ht){
+	/**
+	Resizes the hash table in-place such that it has double the number
+	of buckets. Re-hashes every key and moves every pre-existing 
+	cargo in the table.
+	*/
+	
+	// new bucket count should be double
+	int new_size = ht->num_buckets * 2;
+	int old_size = ht->num_buckets;
+
+	Cargo* val;
+	
+	ht->buckets = realloc(ht->buckets, sizeof(Cargo**) * new_size);
+	for (int i=old_size; i<new_size; i++){
+		ht->buckets[i] = NULL;
+	}
+	ht->num_buckets = new_size;
+	ht->num_filled_buckets = 0;
+	
+	
+	for (int i=0; i<old_size; i++){
+		val = ht->buckets[i];
+		if (val != NULL){
+			ht->buckets[i] = NULL;
+			swapped = insert(ht, val); 
+			// using modulo arithmetic, one can show that there is no risk of collisions in the resize inserts for
+			// the modulo hash
+		}
+	}
+}
+
+Cargo* insert_with_resize(HashTable* ht, Cargo* val){
+	/**
+	Insert maintaining load factor alpha with in-place resize.
+
+	In the case of a collision, the original cargo is removed and replaced
+	with the new cargo. The original cargo is returned.
+	*/
+	fprintf(stdout, "Hash table current load factor: %0.2f\n", get_load_factor(ht));
+	if (get_load_factor(ht) >= ALPHA){
+		if (PRINT_DEBUG){
+			fprintf(stdout, "Load factor %0.2f exceeds alpha %0.2f. Resizing...\n", get_load_factor(ht), ALPHA);
+			fprintf(stdout, "Original # buckets: %d\n", ht->num_buckets);
+		}
+		resize(ht);
+		if (PRINT_DEBUG){
+			fprintf(stdout, "Resize complete.\n");
+			fprintf(stdout, "New # buckets: %d\n", ht->num_buckets);
+		}
+	}
+	Cargo* tmp = insert(ht, val);
+	return tmp;
+}
+
+Cargo* delete_key(HashTable* ht, int val){
+	/**
+	Remove the key, if it exists, from the hash table.
+	Note that this function should not free any memory
+	associated with the Cargo.
+	*/
+	unsigned int i = hash(ht, val);
+	Cargo* tmp = NULL;
+	
+	tmp = ht->buckets[i];
+	ht->buckets[i] = NULL;
+	return tmp;
+}
+
+Cargo* lookup(HashTable* ht, int personnel_num){
+	/**
+	Return the Cargo, if it exists, associated with personnel_num
+	*/
+	if (PRINT_DEBUG){
+		fprintf(stdout, "Now looking for personnel #: %d\n", personnel_num);
+	}
+	Cargo* result = NULL;
+	unsigned int i = hash(ht, personnel_num);
+	if (ht->buckets[i] != NULL && ht->buckets[i]->personnel_num == personnel_num){
+		result = ht->buckets[i];
+		if (PRINT_DEBUG){
+			fprintf(stdout, ".. Person found: ");
+			print_cargo(result);
+		}
+	} else if (PRINT_DEBUG){
+		fprintf(stdout, ".. Person NOT found.\n");
+	}
+	return result;
+}
+
+void destroy(HashTable** ht){
+	/**
+	Free all memory allocated for the hash table to allow
+	program termination.
+	*/
+	for (int i=0;i<(*ht)->num_buckets;i++){
+		free((*ht)->buckets[i]);
+		(*ht)->buckets[i] = NULL;
+	}
+	free((*ht)->buckets);
+	free((*ht));
+	*ht = NULL;
+}
+
+int main(){
+	HashTable* ht = initialize_hash_table(1);
+	Cargo* c; 
+	Cargo* r;
+	
+	c = make_cargo("Bob Bilbert", 10119);
+	r = insert_with_resize(ht, c);
+	print_hash_table(ht);
+	free(r);
+	
+	c = make_cargo("Dob Dilbert", 50119);
+	r = insert_with_resize(ht, c);
+	print_hash_table(ht);
+	free(r);
+	
+	c = make_cargo("Rob Rupert", 19876);
+	r = insert_with_resize(ht, c);
+	print_hash_table(ht);
+	free(r);
+	
+	c = make_cargo("Gof Gilbert", 50118);
+	r = insert_with_resize(ht, c);
+	print_hash_table(ht);
+	free(r);
+	
+	c = make_cargo("Joj Jiljert", 50136);
+	r = insert_with_resize(ht, c);
+	print_hash_table(ht);
+	free(r);
+	
+	c = make_cargo("Lol Lillert", 50138);
+	r = insert_with_resize(ht, c);
+	print_hash_table(ht);
+	free(r);
+	
+	lookup(ht, 50138);
+	lookup(ht, 50136);
+	lookup(ht, 50139);
+	
+	destroy(&ht);
+}

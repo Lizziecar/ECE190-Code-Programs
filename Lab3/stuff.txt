@@ -1,0 +1,31 @@
+struct party_node* curr = *head;
+	struct party_node* new_head;
+	struct party_node* next = NULL;
+	struct party_node* prev = NULL;
+	
+	//before new head;
+	while (curr->price > budget) {
+		next = curr->next;
+		free(curr);
+		curr = next;
+	}
+	
+	//at this point curr is on the first item on the new list
+	new_head = curr;
+	
+	while (curr->price <= budget) {
+		budget -= curr->price;
+		prev = curr;
+		curr = curr->next;
+	}
+	prev->next = NULL;
+	
+	//now I have my list, just need to remove the rest
+	while (curr != NULL) {
+		next = curr->next;
+		free(curr);
+		curr = next;
+	}
+	*head = new_head;
+	return budget;
+	
